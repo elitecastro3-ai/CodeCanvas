@@ -1,0 +1,170 @@
+// ─────────────────────────────────────────────
+//  Page: Settings
+//  Profile, Contact, Site, Notifications,
+//  Security, Danger Zone
+// ─────────────────────────────────────────────
+
+import { useState } from 'react';
+import { Save, User, Globe, Bell, Shield, AlertTriangle, Upload } from 'lucide-react';
+import { Card, Button, Input, Textarea, Toggle, SectionHeader } from '../components/ui/index.jsx';
+
+function SettingsSection({ icon: Icon, title, subtitle, children }) {
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-3 mb-6 pb-4 border-b border-blue-500/10">
+        <div className="w-9 h-9 bg-blue-500/15 ring-1 ring-blue-500/30 rounded-xl flex items-center justify-center">
+          <Icon size={16} className="text-blue-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-white text-sm">{title}</h3>
+          {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+      </div>
+      <div className="space-y-5">{children}</div>
+    </Card>
+  );
+}
+
+export default function SettingsPage() {
+  const [profile, setProfile] = useState({ name: 'Elijah Enrique', email: 'elijahenrique8@gmail.com', phone: '0706 018 343', phone2: '0700 497 663', location: 'Kampala, Uganda', bio: 'CodeCanvas is a creative digital studio focused on graphic design, web development, and app development.' });
+  const [site, setSite]       = useState({ siteName: 'CodeCanvas', tagline: 'Where Design Meets Code', whatsapp: 'https://wa.me/256706018343', instagram: 'https://instagram.com/codecanvas', tiktok: '', twitter: '' });
+  const [notifs, setNotifs]   = useState({ newMessage: true, newTestimonial: true, projectUpdate: false, weeklyReport: true });
+  const [saved, setSaved]     = useState(false);
+
+  const setP = (key) => (e) => setProfile(p => ({ ...p, [key]: e.target.value }));
+  const setS = (key) => (e) => setSite(s   => ({ ...s, [key]: e.target.value }));
+  const setN = (key) => (val) => setNotifs(n => ({ ...n, [key]: val }));
+
+  const handleSave = () => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div className="p-5 lg:p-7 space-y-6">
+
+      <div className="flex items-center justify-between">
+        <SectionHeader tag="⚙️ Config" title="Account" highlight="Settings" subtitle="Manage your profile and preferences" />
+        <Button
+          variant={saved ? 'success' : 'primary'}
+          icon={Save}
+          onClick={handleSave}
+        >
+          {saved ? 'Saved!' : 'Save Changes'}
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        {/* ── Profile ── */}
+        <SettingsSection icon={User} title="Profile" subtitle="Your public-facing information">
+          {/* Avatar upload */}
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-xl font-bold text-white flex-shrink-0">
+              EE
+            </div>
+            <div>
+              <Button variant="outline" size="sm" icon={Upload}>Change Photo</Button>
+              <p className="text-xs text-slate-600 mt-1.5">PNG or JPG, max 2MB</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Full Name"  value={profile.name}     onChange={setP('name')} />
+            <Input label="Email"      value={profile.email}    onChange={setP('email')} type="email" />
+            <Input label="Phone 1"    value={profile.phone}    onChange={setP('phone')} />
+            <Input label="Phone 2"    value={profile.phone2}   onChange={setP('phone2')} />
+          </div>
+          <Input label="Location" value={profile.location} onChange={setP('location')} />
+          <Textarea label="Bio / About" value={profile.bio} onChange={setP('bio')} rows={3} />
+        </SettingsSection>
+
+        {/* ── Site Settings ── */}
+        <SettingsSection icon={Globe} title="Website Settings" subtitle="Public site configuration">
+          <Input label="Site Name" value={site.siteName} onChange={setS('siteName')} />
+          <Input label="Tagline"   value={site.tagline}  onChange={setS('tagline')} />
+          <div className="pt-1">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Social Media Links</div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📱</span>
+                <Input placeholder="WhatsApp URL" value={site.whatsapp}   onChange={setS('whatsapp')}   className="flex-1" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📸</span>
+                <Input placeholder="Instagram URL" value={site.instagram} onChange={setS('instagram')} className="flex-1" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎵</span>
+                <Input placeholder="TikTok URL"    value={site.tiktok}    onChange={setS('tiktok')}    className="flex-1" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🐦</span>
+                <Input placeholder="X / Twitter URL" value={site.twitter} onChange={setS('twitter')}  className="flex-1" />
+              </div>
+            </div>
+          </div>
+        </SettingsSection>
+
+        {/* ── Notifications ── */}
+        <SettingsSection icon={Bell} title="Notifications" subtitle="Choose what alerts you receive">
+          <div className="space-y-4">
+            {[
+              { key: 'newMessage',       label: 'New contact message',      sub: 'Email when someone submits the contact form'   },
+              { key: 'newTestimonial',   label: 'New testimonial submitted', sub: 'Alert when a client leaves a review'           },
+              { key: 'projectUpdate',    label: 'Project status updates',    sub: 'Notify on project milestone changes'           },
+              { key: 'weeklyReport',     label: 'Weekly summary report',     sub: 'Receive a weekly analytics digest'             },
+            ].map(n => (
+              <div key={n.key} className="flex items-center justify-between gap-4 p-3 rounded-xl hover:bg-slate-700/30 transition-colors">
+                <div>
+                  <div className="text-sm font-medium text-white">{n.label}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{n.sub}</div>
+                </div>
+                <Toggle checked={notifs[n.key]} onChange={setN(n.key)} />
+              </div>
+            ))}
+          </div>
+        </SettingsSection>
+
+        {/* ── Security ── */}
+        <SettingsSection icon={Shield} title="Security" subtitle="Manage your account security">
+          <div className="space-y-3">
+            <Input label="Current Password" type="password" placeholder="••••••••" />
+            <Input label="New Password"     type="password" placeholder="••••••••" />
+            <Input label="Confirm Password" type="password" placeholder="••••••••" />
+          </div>
+          <Button variant="outline" className="w-full justify-center mt-2">Update Password</Button>
+
+          <div className="pt-4 border-t border-blue-500/10">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-700/20">
+              <div>
+                <div className="text-sm font-medium text-white">Two-Factor Auth</div>
+                <div className="text-xs text-slate-500 mt-0.5">Extra layer of account security</div>
+              </div>
+              <Toggle checked={false} onChange={() => {}} />
+            </div>
+          </div>
+        </SettingsSection>
+
+      </div>
+
+      {/* ── Danger Zone (full width) ── */}
+      <Card className="p-6 border-red-500/20">
+        <div className="flex items-center gap-3 mb-5 pb-4 border-b border-red-500/10">
+          <div className="w-9 h-9 bg-red-500/15 ring-1 ring-red-500/30 rounded-xl flex items-center justify-center">
+            <AlertTriangle size={16} className="text-red-400" />
+          </div>
+          <div>
+            <h3 className="font-bold text-red-400 text-sm">Danger Zone</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Irreversible actions — proceed with caution</p>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button variant="danger" className="flex-1 justify-center">Clear All Messages</Button>
+          <Button variant="danger" className="flex-1 justify-center">Reset Portfolio Data</Button>
+          <Button variant="danger" className="flex-1 justify-center">Delete Account</Button>
+        </div>
+      </Card>
+
+    </div>
+  );
+}
