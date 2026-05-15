@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/layout/Sidebar";
-import TopBar from "./components/layout/TopBar";
+import Topbar from "./components/layout/Topbar";
 import Dashboard from "./pages/Dashboard";
 import Portfolio from "./pages/Portfolio";
 import Services from "./pages/Services";
@@ -24,7 +24,7 @@ export default function App() {
         />
       )}
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,overflow:"hidden"}}>
-        <TopBar onMenuClick={() => setSidebarOpen(true)} />
+        <Topbar onMenuClick={() => setSidebarOpen(true)} />
         <main style={{flex:1,overflowY:"auto",padding:"24px"}}>
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
