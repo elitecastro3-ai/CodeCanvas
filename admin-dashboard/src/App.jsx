@@ -16,7 +16,10 @@ export default function App() {
 
   return (
     <div style={{display:"flex",height:"100vh",background:"#0F172A",overflow:"hidden",fontFamily:"'Poppins',sans-serif"}}>
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+  mobileOpen={sidebarOpen}
+  setMobileOpen={setSidebarOpen}
+/>
       {sidebarOpen && (
         <div
           style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:20}}
