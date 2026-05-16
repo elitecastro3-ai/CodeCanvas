@@ -10,6 +10,8 @@ import Messages from "./pages/Messages";
 import Media from "./pages/Media";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -30,16 +32,93 @@ export default function App() {
         <Topbar onMenuClick={() => setSidebarOpen(true)} />
         <main style={{flex:1,overflowY:"auto",padding:"24px"}}>
           <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard"    element={<Dashboard />} />
-            <Route path="/portfolio"    element={<Portfolio />} />
-            <Route path="/services"     element={<Services />} />
-            <Route path="/testimonials" element={<Testimonials />} />
-            <Route path="/messages"     element={<Messages />} />
-            <Route path="/media"        element={<Media />} />
-            <Route path="/analytics"    element={<Analytics />} />
-            <Route path="/settings"     element={<Settings />} />
-          </Routes>
+
+          {/* Login */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Protected Routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/dashboard" replace />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/portfolio"
+            element={
+              <ProtectedRoute>
+                <Portfolio />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/services"
+            element={
+              <ProtectedRoute>
+                <Services />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/testimonials"
+            element={
+              <ProtectedRoute>
+                <Testimonials />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <Messages />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/media"
+            element={
+              <ProtectedRoute>
+                <Media />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <Analytics />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            }
+          />
+
+        </Routes>
         </main>
       </div>
     </div>
