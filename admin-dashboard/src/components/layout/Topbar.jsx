@@ -94,7 +94,8 @@ export default function Topbar({ onMenuClick }) {
 
         {/* View live site */}
         <a
-          href="http://localhost:3000"
+          
+          href="https://codecanvas-topaz.vercel.app"
           target="_blank"
           rel="noreferrer"
           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-blue-400 border border-blue-500/20 hover:border-blue-500/40 rounded-xl transition-all"
