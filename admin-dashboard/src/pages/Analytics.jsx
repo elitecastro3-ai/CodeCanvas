@@ -19,7 +19,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
   const c = colorMap[color] ?? colorMap.blue;
 
   return (
-    <Card className="p-4 sm:p-5 flex items-center gap-3 min-w-0">
+  <Card className="p-4 sm:p-5 flex items-center gap-3 min-w-0 overflow-hidden"> 
       <div
         className={`w-11 h-11 ${c.bg} ring-1 ${c.ring} rounded-2xl flex items-center justify-center flex-shrink-0`}
       >
@@ -27,7 +27,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
       </div>
 
       <div className="min-w-0">
-        <div className="text-lg sm:text-xl font-extrabold text-white font-mono break-words">
+        <div className="text-lg sm:text-xl font-extrabold text-white font-mono break-all leading-tight">
           {value}
         </div>
 
@@ -36,7 +36,7 @@ function KpiCard({ icon: Icon, label, value, sub, color }) {
         </div>
 
         {sub && (
-          <div className="text-[11px] text-emerald-400 mt-0.5">
+          <div className="text-[11px] text-emerald-400 mt-0.5 break-words leading-tight">
             {sub}
           </div>
         )}
