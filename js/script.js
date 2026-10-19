@@ -103,7 +103,8 @@
 
     // Highlight the nav link for the section currently in view.
     if ('IntersectionObserver' in window) {
-      const links = new Map($$('.nav__list a').map((a) => [a.getAttribute('href').slice(1), a]));
+      const links = new Map($$('.nav__list a[href^="#"]').map((a) => [a.getAttribute('href').slice(1), a]));
+      if (!links.size) return;
       const spy = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
@@ -147,15 +148,20 @@
     return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Other';
   };
 
+  /** A project has a case study once any of these optional columns is filled in. */
+  const hasCaseStudy = (p) => ['problem', 'solution', 'result'].some((k) => String(p[k] || '').trim());
+
   function projectCard(p, lead) {
-    const url = safeUrl(p.liveurl);
+    const caseUrl = hasCaseStudy(p) && p.id != null ? `project.html?id=${encodeURIComponent(p.id)}` : '';
+    const url = caseUrl || safeUrl(p.liveurl);
     const title = esc(p.title || 'Untitled project');
     const image = p.image
       ? `<img src="${esc(p.image)}" alt="${title} — screenshot" loading="lazy" decoding="async">`
       : fallbackMedia(catLabel(p));
-    const heading = url
-      ? `<a class="project__link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${title}<span class="sr-only"> (opens in a new tab)</span></a>`
-      : title;
+    const heading = !url ? title
+      : caseUrl
+        ? `<a class="project__link" href="${esc(caseUrl)}">${title}<span class="sr-only"> (read case study)</span></a>`
+        : `<a class="project__link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${title}<span class="sr-only"> (opens in a new tab)</span></a>`;
     return `
       <article class="project${lead ? ' project--lead' : ''}">
         <div class="project__media">${image}</div>
@@ -163,7 +169,8 @@
           <p class="project__cat">${esc(catLabel(p))}</p>
           <h3 class="project__title">${heading}</h3>
           ${p.description ? `<p class="project__desc">${esc(p.description)}</p>` : ''}
-          ${url ? `<span class="project__cta" aria-hidden="true">View live site ${icon('arrow-up-right')}</span>` : ''}
+          ${caseUrl ? `<span class="project__cta" aria-hidden="true">Read case study ${icon('arrow-right')}</span>`
+            : url ? `<span class="project__cta" aria-hidden="true">View live site ${icon('arrow-up-right')}</span>` : ''}
         </div>
       </article>`;
   }
@@ -290,6 +297,7 @@
   }
 
   function initReviews() {
+    if (!$('#reviewsList')) return;
     loadReviews();
     if (!client) return;
     let timer;
@@ -303,6 +311,73 @@
     } catch (err) {
       console.error('Realtime subscription failed', err);
     }
+  }
+
+  /* ── Case-study page (project.html) ─────────────────────────────────────
+     Reads one row from `portfolio`. Optional columns: client, year, problem,
+     solution, result, gallery (image URLs, one per line). Anything empty is
+     simply not shown. */
+  const paragraphs = (text) =>
+    String(text || '').split(/\n+/).map((t) => t.trim()).filter(Boolean).map((t) => `<p>${esc(t)}</p>`).join('');
+
+  function projectMessage(root, html) {
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `<p class="projects__empty">${html}</p>`;
+  }
+
+  function renderProject(root, p) {
+    const title = esc(p.title || 'Untitled project');
+    const live = safeUrl(p.liveurl);
+    const gallery = String(p.gallery || '').split(/\s+/).map(safeUrl).filter(Boolean);
+    const meta = [
+      ['Category', catLabel(p)],
+      p.client ? ['Client', p.client] : null,
+      p.year ? ['Year', p.year] : null,
+    ].filter(Boolean).map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')
+      + (live ? `<div><dt>Live site</dt><dd><a href="${esc(live)}" target="_blank" rel="noopener noreferrer">Visit site ${icon('arrow-up-right')}<span class="sr-only"> (opens in a new tab)</span></a></dd></div>` : '');
+    const block = (label, text) => String(text || '').trim()
+      ? `<section class="case__block"><h2>${label}</h2><div class="case__text">${paragraphs(text)}</div></section>` : '';
+    const blocks = block('The problem', p.problem) + block('What we built', p.solution) + block('The result', p.result);
+
+    root.setAttribute('aria-busy', 'false');
+    root.innerHTML = `
+      <header class="case__head">
+        <p class="kicker"><span>Case study</span>${esc(catLabel(p))}</p>
+        <h1>${title}</h1>
+        ${p.description ? `<p class="case__lede">${esc(p.description)}</p>` : ''}
+        <dl class="case__meta">${meta}</dl>
+      </header>
+      ${p.image ? `<figure class="case__hero"><img src="${esc(p.image)}" alt="${title} — screenshot" decoding="async"></figure>` : ''}
+      ${blocks ? `<div class="case__blocks">${blocks}</div>` : ''}
+      ${gallery.length ? `<div class="case__gallery">${gallery.map((g) => `<img src="${esc(g)}" alt="${title} — additional screenshot" loading="lazy" decoding="async">`).join('')}</div>` : ''}
+      <aside class="case__cta">
+        <div><h2>Want something similar?</h2><p>Tell us about your business and what you need. We’ll reply with next steps.</p></div>
+        <div class="case__cta-actions">
+          <a class="btn btn--primary" href="index.html#contact">Start a project ${icon('arrow-right')}</a>
+          <a class="btn btn--secondary" href="${WHATSAPP_URL}" target="_blank" rel="noopener noreferrer"><svg class="icon icon--brand" aria-hidden="true"><use href="#b-whatsapp"/></svg> WhatsApp</a>
+        </div>
+      </aside>`;
+
+    document.title = `${p.title || 'Project'} — CodeCanvas`;
+    const desc = $('meta[name="description"]');
+    if (desc && p.description) desc.setAttribute('content', String(p.description).slice(0, 155));
+  }
+
+  async function initProject() {
+    const root = $('#projectContent');
+    if (!root) return;
+    const id = new URLSearchParams(location.search).get('id');
+    const back = '<a href="index.html#portfolio">Back to the portfolio</a>';
+    if (!id) return projectMessage(root, `We couldn’t tell which project to show. ${back}.`);
+    if (!client) return projectMessage(root, `This project couldn’t be loaded right now. Please refresh, or ${back.toLowerCase()}.`);
+
+    const { data, error } = await client.from('portfolio').select('*').eq('id', id).maybeSingle();
+    if (error) {
+      console.error(error);
+      return projectMessage(root, `This project couldn’t be loaded right now. Please refresh, or ${back.toLowerCase()}.`);
+    }
+    if (!data) return projectMessage(root, `We couldn’t find that project. ${back}.`);
+    renderProject(root, data);
   }
 
   /* ── Forms ───────────────────────────────────────────────────────────── */
@@ -458,6 +533,7 @@
   initNav();
   initReveal();
   initPortfolio();
+  initProject();
   initReviews();
   initContactForm();
   initReviewForm();
