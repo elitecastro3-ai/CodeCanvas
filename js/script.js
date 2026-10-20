@@ -153,7 +153,10 @@
 
   function projectCard(p, lead) {
     const caseUrl = hasCaseStudy(p) && p.id != null ? `project.html?id=${encodeURIComponent(p.id)}` : '';
-    const url = caseUrl || safeUrl(p.liveurl);
+    const live = safeUrl(p.liveurl);
+    // No live site? Fall back to the project's own image, opened full size.
+    const imageLink = !caseUrl && !live ? safeUrl(p.image) : '';
+    const url = caseUrl || live || imageLink;
     const title = esc(p.title || 'Untitled project');
     const image = p.image
       ? `<img src="${esc(p.image)}" alt="${title} — screenshot" loading="lazy" decoding="async">`
@@ -170,7 +173,8 @@
           <h3 class="project__title">${heading}</h3>
           ${p.description ? `<p class="project__desc">${esc(p.description)}</p>` : ''}
           ${caseUrl ? `<span class="project__cta" aria-hidden="true">Read case study ${icon('arrow-right')}</span>`
-            : url ? `<span class="project__cta" aria-hidden="true">View live site ${icon('arrow-up-right')}</span>` : ''}
+            : live ? `<span class="project__cta" aria-hidden="true">View live site ${icon('arrow-up-right')}</span>`
+            : imageLink ? `<span class="project__cta" aria-hidden="true">View full size ${icon('arrow-up-right')}</span>` : ''}
         </div>
       </article>`;
   }
