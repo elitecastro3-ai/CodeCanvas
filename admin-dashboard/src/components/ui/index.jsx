@@ -1,282 +1,250 @@
-// ─────────────────────────────────────────────
-//  CodeCanvas Admin — Reusable UI Components
-//  StatCard | Badge | Button | SectionHeader
-//  Table | EmptyState | Avatar | Toggle
-// ─────────────────────────────────────────────
+import { useEffect, useId, useRef, useState } from 'react'
+import { X, Loader2, AlertCircle, Inbox, RefreshCw } from 'lucide-react'
 
-import { TrendingUp, TrendingDown } from 'lucide-react';
+/* ── Utilities ───────────────────────────────────────────────────────── */
+const cx = (...c) => c.filter(Boolean).join(' ')
 
-/* ── Stat Card ──────────────────────────────── */
-export function StatCard({ label, value, change, up, colorClass = 'text-blue-400', icon: Icon }) {
-  return (
-    <div className="bg-slate-800/80 backdrop-blur-sm border border-blue-500/20 rounded-2xl p-5 hover:border-blue-500/40 transition-all duration-300 group">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-slate-700/60 ${colorClass}`}>
-          {Icon && <Icon size={18} />}
-        </div>
-        <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
-          up ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
-        }`}>
-          {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-          {change}
-        </span>
-      </div>
-      <div className="mt-1">
-        <div className="text-2xl font-bold text-white font-mono tracking-tight">{value}</div>
-        <div className="text-xs text-slate-400 mt-1 font-medium">{label}</div>
-      </div>
-    </div>
-  );
+/* ── Button ──────────────────────────────────────────────────────────── */
+const BTN = {
+  primary: 'bg-brand-600 text-white hover:bg-brand-700 border-transparent',
+  secondary: 'bg-transparent text-white border-line-strong hover:border-white/70 hover:bg-white/5',
+  ghost: 'bg-transparent text-muted border-transparent hover:text-white hover:bg-white/5',
+  danger: 'bg-transparent text-red-300 border-red-400/40 hover:bg-red-500/10 hover:border-red-400/70',
+  dangerSolid: 'bg-red-600 text-white hover:bg-red-700 border-transparent',
 }
+const BTN_SIZE = { md: 'min-h-[44px] px-4 text-sm', sm: 'min-h-[36px] px-3 text-[13px]' }
 
-/* ── Badge ──────────────────────────────────── */
-export function Badge({ children, variant = 'blue' }) {
-  const variants = {
-    blue:   'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    green:  'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    gold:   'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    red:    'bg-red-500/15 text-red-400 border-red-500/30',
-    purple: 'bg-violet-500/15 text-violet-400 border-violet-500/30',
-    gray:   'bg-slate-600/40 text-slate-400 border-slate-500/30',
-    teal:   'bg-teal-500/15 text-teal-400 border-teal-500/30',
-  };
+export function Button({ variant = 'primary', size = 'md', icon: Icon, loading, className, children, as: As = 'button', ...rest }) {
+  const props = As === 'button' ? { type: 'button', ...rest } : rest
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${variants[variant] ?? variants.gray}`}>
+    <As
+      {...props}
+      disabled={rest.disabled || loading}
+      className={cx(
+        'inline-flex items-center justify-center gap-2 rounded-[10px] border font-semibold transition-colors',
+        'disabled:opacity-60 disabled:cursor-not-allowed', BTN[variant], BTN_SIZE[size], className
+      )}
+    >
+      {loading ? <Loader2 size={16} className="spin" aria-hidden="true" /> : Icon ? <Icon size={16} aria-hidden="true" /> : null}
       {children}
-    </span>
-  );
+    </As>
+  )
 }
 
-/* ── Button ─────────────────────────────────── */
-export function Button({ children, variant = 'primary', size = 'md', onClick, className = '', icon: Icon, disabled = false }) {
-  const base = 'inline-flex items-center gap-2 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
-  const sizes = {
-    sm: 'px-3 py-1.5 text-xs',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
-  };
-  const variants = {
-    primary:  'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20 hover:-translate-y-0.5',
-    outline:  'border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 hover:border-blue-500/60',
-    ghost:    'text-slate-400 hover:text-white hover:bg-slate-700/60',
-    danger:   'bg-red-600/20 border border-red-500/40 text-red-400 hover:bg-red-600/30',
-    gold:     'bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:bg-amber-500/30',
-    success:  'bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-600/30',
-  };
+export function IconButton({ icon: Icon, label, variant = 'ghost', className, ...rest }) {
   return (
     <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`${base} ${sizes[size]} ${variants[variant]} ${className}`}
+      type="button" aria-label={label} title={label} {...rest}
+      className={cx('inline-grid place-items-center w-10 h-10 rounded-[10px] border transition-colors disabled:opacity-50', BTN[variant], className)}
     >
-      {Icon && <Icon size={size === 'sm' ? 12 : size === 'lg' ? 18 : 14} />}
-      {children}
+      <Icon size={17} aria-hidden="true" />
     </button>
-  );
+  )
 }
 
-/* ── Section Header ─────────────────────────── */
-export function SectionHeader({ tag, title, highlight, subtitle }) {
+/** Image that falls back to an icon if the file is missing or fails to load. */
+export function Thumb({ src, alt = '', className, fallback }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) return fallback
+  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={className} />
+}
+
+/* ── Surfaces ────────────────────────────────────────────────────────── */
+export const Card = ({ className, children, ...rest }) => (
+  <div {...rest} className={cx('min-w-0 bg-ink-900 border border-line rounded-[14px]', className)}>{children}</div>
+)
+
+const BADGE = {
+  neutral: 'text-muted border-line-strong',
+  blue: 'text-brand-400 border-brand-500/40',
+  green: 'text-emerald-300 border-emerald-400/40',
+  gold: 'text-gold border-gold/40',
+  red: 'text-red-300 border-red-400/40',
+}
+export const Badge = ({ tone = 'neutral', children, className }) => (
+  <span className={cx('inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap', BADGE[tone], className)}>{children}</span>
+)
+
+export function PageHeader({ title, description, actions }) {
   return (
-    <div className="mb-8">
-      {tag && (
-        <span className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-3">
-          {tag}
-        </span>
-      )}
-      <h2 className="text-2xl font-extrabold text-white font-display">
-        {title}{' '}
-        {highlight && <span className="text-blue-400">{highlight}</span>}
-      </h2>
-      {subtitle && <p className="text-slate-400 text-sm mt-1">{subtitle}</p>}
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6 lg:mb-8">
+      <div className="min-w-0">
+        <h1 className="text-2xl lg:text-[1.75rem] font-extrabold leading-tight">{title}</h1>
+        {description && <p className="text-muted text-sm mt-1.5 max-w-prose">{description}</p>}
+      </div>
+      {actions && <div className="flex flex-wrap gap-2 shrink-0">{actions}</div>}
     </div>
-  );
+  )
 }
 
-/* ── Card ───────────────────────────────────── */
-export function Card({ children, className = '', hover = false }) {
+/* ── Form fields ─────────────────────────────────────────────────────── */
+const FIELD = 'w-full min-h-[44px] rounded-[10px] bg-ink-950 border border-line-strong px-3.5 py-2.5 text-base sm:text-sm text-white placeholder:text-slate-500 transition-colors hover:border-slate-400/60 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 aria-[invalid=true]:border-red-400'
+
+function Field({ label, hint, error, id, children, className }) {
   return (
-    <div className={`
-      bg-slate-800/80 backdrop-blur-sm border border-blue-500/20 rounded-2xl
-      ${hover ? 'hover:border-blue-500/40 hover:-translate-y-0.5 transition-all duration-300 cursor-pointer' : ''}
-      ${className}
-    `}>
+    <div className={cx('block', className)}>
+      {label && <label htmlFor={id} className="block text-[13px] font-semibold text-soft mb-1.5">{label}</label>}
       {children}
+      {hint && !error && <p className="text-xs text-muted mt-1.5">{hint}</p>}
+      {error && <p className="text-xs text-red-300 mt-1.5" role="alert">{error}</p>}
     </div>
-  );
+  )
 }
 
-/* ── Input ──────────────────────────────────── */
-export function Input({ label, placeholder, type = 'text', value, onChange, className = '' }) {
+export function Input({ label, hint, error, className, ...rest }) {
+  const id = useId()
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{label}</label>}
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className="bg-slate-900/60 border border-blue-500/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10 transition-all"
-      />
-    </div>
-  );
+    <Field label={label} hint={hint} error={error} id={id} className={className}>
+      <input id={id} aria-invalid={error ? 'true' : undefined} className={FIELD} {...rest} />
+    </Field>
+  )
 }
 
-/* ── Select ─────────────────────────────────── */
-export function Select({ label, options, value, onChange, className = '' }) {
+export function Textarea({ label, hint, error, className, rows = 4, ...rest }) {
+  const id = useId()
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{label}</label>}
-      <select
-        value={value}
-        onChange={onChange}
-        className="bg-slate-900/60 border border-blue-500/20 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-blue-500/60 transition-all appearance-none cursor-pointer"
-      >
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value} className="bg-slate-800">{opt.label}</option>
-        ))}
+    <Field label={label} hint={hint} error={error} id={id} className={className}>
+      <textarea id={id} rows={rows} aria-invalid={error ? 'true' : undefined} className={cx(FIELD, 'resize-y leading-relaxed')} {...rest} />
+    </Field>
+  )
+}
+
+export function Select({ label, hint, error, options = [], className, ...rest }) {
+  const id = useId()
+  return (
+    <Field label={label} hint={hint} error={error} id={id} className={className}>
+      <select id={id} aria-invalid={error ? 'true' : undefined} className={cx(FIELD, 'appearance-none pr-9 bg-no-repeat')}
+        style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")", backgroundPosition: 'right 0.8rem center', backgroundSize: '1rem' }}
+        {...rest}>
+        {options.map((o) => (typeof o === 'string' ? { value: o, label: o } : o)).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    </Field>
+  )
+}
+
+export function Toggle({ checked, onChange, label, disabled }) {
+  return (
+    <button
+      type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => onChange(!checked)}
+      className={cx('relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:opacity-50',
+        checked ? 'bg-brand-600 border-brand-600' : 'bg-ink-800 border-line-strong')}
+    >
+      <span className={cx('inline-block h-4 w-4 rounded-full bg-white transition-transform', checked ? 'translate-x-[22px]' : 'translate-x-[3px]')} />
+    </button>
+  )
+}
+
+/** Segmented filter (All / Website / App …) with optional counts. */
+export function FilterTabs({ value, onChange, options, label = 'Filter' }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap gap-1.5">
+      {options.map((o) => {
+        const opt = typeof o === 'string' ? { value: o, label: o } : o
+        const active = value === opt.value
+        return (
+          <button key={opt.value} type="button" aria-pressed={active} onClick={() => onChange(opt.value)}
+            className={cx('min-h-[36px] px-3 rounded-lg border text-[13px] font-semibold transition-colors',
+              active ? 'bg-white text-ink-900 border-white' : 'text-muted border-line-strong hover:text-white hover:border-slate-400/70')}>
+            {opt.label}{opt.count != null && <span className={cx('ml-1.5 font-mono text-[11px]', active ? 'text-ink-700' : 'text-slate-500')}>{opt.count}</span>}
+          </button>
+        )
+      })}
     </div>
-  );
+  )
 }
 
-/* ── Textarea ───────────────────────────────── */
-export function Textarea({ label, placeholder, value, onChange, rows = 4, className = '' }) {
+/* ── Feedback states ─────────────────────────────────────────────────── */
+export const Skeleton = ({ className }) => <div className={cx('skeleton', className)} aria-hidden="true" />
+
+export function EmptyState({ icon: Icon = Inbox, title, children, action }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{label}</label>}
-      <textarea
-        rows={rows}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        className="bg-slate-900/60 border border-blue-500/20 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-blue-500/60 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
-      />
+    <div className="border border-dashed border-line-strong rounded-[14px] px-6 py-12 text-center">
+      <Icon size={28} className="mx-auto text-slate-500 mb-3" aria-hidden="true" />
+      <p className="font-display font-bold text-lg">{title}</p>
+      {children && <p className="text-muted text-sm mt-1.5 max-w-sm mx-auto">{children}</p>}
+      {action && <div className="mt-5">{action}</div>}
     </div>
-  );
+  )
 }
 
-/* ── Toggle ─────────────────────────────────── */
-export function Toggle({ checked, onChange, label }) {
+export function ErrorState({ title = 'We couldn’t load this', error, onRetry }) {
   return (
-    <label className="flex items-center gap-3 cursor-pointer">
-      <div
-        onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-all duration-300 cursor-pointer ${
-          checked ? 'bg-blue-500' : 'bg-slate-600'
-        }`}
-      >
-        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-all duration-300 ${
-          checked ? 'left-6' : 'left-1'
-        }`} />
-      </div>
-      {label && <span className="text-sm text-slate-300">{label}</span>}
-    </label>
-  );
-}
-
-/* ── Avatar ─────────────────────────────────── */
-export function Avatar({ name = '', size = 'md', color = 'blue' }) {
-  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const sizes = { sm: 'w-7 h-7 text-xs', md: 'w-9 h-9 text-sm', lg: 'w-12 h-12 text-base' };
-  const colors = {
-    blue:   'bg-blue-500/30 text-blue-300',
-    gold:   'bg-amber-500/30 text-amber-300',
-    green:  'bg-emerald-500/30 text-emerald-300',
-    purple: 'bg-violet-500/30 text-violet-300',
-  };
-  return (
-    <div className={`${sizes[size]} ${colors[color] ?? colors.blue} rounded-full flex items-center justify-center font-bold font-display flex-shrink-0`}>
-      {initials}
+    <div className="border border-red-400/30 bg-red-500/5 rounded-[14px] px-6 py-8 text-center" role="alert">
+      <AlertCircle size={26} className="mx-auto text-red-300 mb-3" aria-hidden="true" />
+      <p className="font-display font-bold text-lg">{title}</p>
+      <p className="text-muted text-sm mt-1.5 max-w-md mx-auto">{error?.message || 'Check your connection and try again.'}</p>
+      {onRetry && <Button variant="secondary" size="sm" icon={RefreshCw} className="mt-5" onClick={onRetry}>Try again</Button>}
     </div>
-  );
+  )
 }
 
-/* ── Empty State ────────────────────────────── */
-export function EmptyState({ icon = '📭', title = 'Nothing here', subtitle = '' }) {
+export function Notice({ tone = 'info', title, children }) {
+  const t = tone === 'warn' ? 'border-gold/40 bg-gold/5' : 'border-brand-500/30 bg-brand-500/5'
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <div className="text-5xl mb-4">{icon}</div>
-      <div className="text-lg font-semibold text-slate-300">{title}</div>
-      {subtitle && <div className="text-sm text-slate-500 mt-1">{subtitle}</div>}
+    <div className={cx('border rounded-[12px] px-4 py-3 text-sm', t)}>
+      {title && <p className="font-semibold mb-0.5">{title}</p>}
+      <div className="text-soft">{children}</div>
     </div>
-  );
+  )
 }
 
-/* ── Status Badge helper ────────────────────── */
-export function statusVariant(status) {
-  const map = {
-    'Live': 'green', 'Active': 'green', 'Approved': 'green',
-    'In Progress': 'gold', 'Pending': 'gold', 'Draft': 'gray',
-    'Inactive': 'red',
-  };
-  return map[status] ?? 'gray';
-}
-
-/* ── Bar Chart (pure CSS) ───────────────────── */
-export function BarChart({ data }) {
-  const max = Math.max(...data.map(d => d.revenue));
-  return (
-    <div className="flex items-end gap-2 h-40 w-full">
-      {data.map((d) => (
-        <div key={d.month} className="flex flex-col items-center gap-1 flex-1">
-          <div
-            className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400 opacity-80 hover:opacity-100 transition-opacity cursor-default"
-            style={{ height: `${(d.revenue / max) * 100}%`, minHeight: '8px' }}
-            title={`UGX ${(d.revenue/1000000).toFixed(1)}M`}
-          />
-          <span className="text-[10px] text-slate-500">{d.month}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ── Donut Chart (SVG) ──────────────────────── */
-export function DonutChart({ data }) {
-  const size = 120;
-  const r = 45;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  let offset = 0;
-
-  const slices = data.map((item) => {
-    const dash = (item.pct / 100) * circumference;
-    const gap  = circumference - dash;
-    const slice = { ...item, dash, gap, offset };
-    offset += dash;
-    return slice;
-  });
+/* ── Modal (accessible: Escape, focus trap, scroll lock, labelled) ───── */
+export function Modal({ title, description, onClose, children, footer, size = 'lg' }) {
+  const ref = useRef(null)
+  const titleId = useId()
+  useEffect(() => {
+    const prev = document.activeElement
+    document.body.style.overflow = 'hidden'
+    const root = ref.current
+    const focusables = () => root.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])')
+    const first = root.querySelector('[data-autofocus]') || focusables()[0]
+    first && first.focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose() }
+      if (e.key === 'Tab') {
+        const f = [...focusables()]; if (!f.length) return
+        const a = f[0], z = f[f.length - 1]
+        if (e.shiftKey && document.activeElement === a) { e.preventDefault(); z.focus() }
+        else if (!e.shiftKey && document.activeElement === z) { e.preventDefault(); a.focus() }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev && prev.focus && prev.focus() }
+  }, [onClose])
 
   return (
-    <div className="flex items-center gap-6">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth="14" />
-        {slices.map((s) => (
-          <circle
-            key={s.name}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={s.color}
-            strokeWidth="14"
-            strokeDasharray={`${s.dash} ${s.gap}`}
-            strokeDashoffset={-s.offset + circumference / 4}
-            style={{ transition: 'stroke-dasharray 0.5s ease' }}
-          />
-        ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" fill="white" fontSize="14" fontWeight="bold">100%</text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fill="#94a3b8" fontSize="9">Services</text>
-      </svg>
-      <div className="flex flex-col gap-2">
-        {data.map((d) => (
-          <div key={d.name} className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
-            <span className="text-xs text-slate-400">{d.name}</span>
-            <span className="text-xs font-bold text-white ml-auto pl-4">{d.pct}%</span>
+    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4">
+      <div className="absolute inset-0 bg-ink-1000/80" onClick={onClose} aria-hidden="true" />
+      <div ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId}
+        className={cx('pop relative w-full bg-ink-900 border border-line-strong shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[90vh]',
+          'rounded-t-[18px] sm:rounded-[16px]', size === 'sm' ? 'sm:max-w-md' : size === 'xl' ? 'sm:max-w-3xl' : 'sm:max-w-xl')}>
+        <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
+          <div className="min-w-0">
+            <h3 id={titleId} className="text-lg font-bold">{title}</h3>
+            {description && <p className="text-sm text-muted mt-0.5">{description}</p>}
           </div>
-        ))}
+          <IconButton icon={X} label="Close" onClick={onClose} className="-mr-2 -mt-1" />
+        </div>
+        <div className="px-5 py-5 overflow-y-auto">{children}</div>
+        {footer && <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 px-5 py-4 border-t border-line pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>}
       </div>
     </div>
-  );
+  )
 }
+
+export const Stars = ({ value = 0, size = 14 }) => (
+  <span className="inline-flex gap-0.5" role="img" aria-label={`${value} out of 5 stars`}>
+    {[1, 2, 3, 4, 5].map((i) => (
+      <svg key={i} width={size} height={size} viewBox="0 0 24 24" fill={i <= value ? '#e3ab3d' : 'none'} stroke={i <= value ? '#e3ab3d' : '#475569'} strokeWidth="2" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
+      </svg>
+    ))}
+  </span>
+)
+
+export const Avatar = ({ name, size = 36 }) => (
+  <span className="inline-grid place-items-center rounded-full bg-ink-800 border border-line-strong text-soft font-bold shrink-0"
+    style={{ width: size, height: size, fontSize: size * 0.36 }} aria-hidden="true">
+    {(name || '?').trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?'}
+  </span>
+)

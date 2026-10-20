@@ -1,183 +1,121 @@
-// ─────────────────────────────────────────────
-//  Page: Messages Inbox
-//  Two-panel layout: list + detail view
-// ─────────────────────────────────────────────
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Mail, Trash2, Inbox, RefreshCw, Circle } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useTable } from '../lib/useTable'
+import { useCounts } from '../lib/counts.jsx'
+import { isUnread, setRead } from '../lib/messageState'
+import { errorText, formatDate, timeAgo } from '../lib/format'
+import { useFeedback } from '../components/ui/feedback.jsx'
+import { Avatar, Badge, Button, Card, EmptyState, ErrorState, FilterTabs, PageHeader, Skeleton } from '../components/ui/index.jsx'
 
-import { useState, useEffect } from 'react';
-import { Trash2, Reply, Circle, CheckCircle } from 'lucide-react';
-import { Badge, Button, Card, SectionHeader, Avatar } from '../components/ui/index.jsx';
-import { supabase } from '../lib/supabase';
+export default function Messages() {
+  const { items, setItems, loading, error, reload } = useTable('messages')
+  const { refresh } = useCounts()
+  const { toast, confirm } = useFeedback()
+  const [selectedId, setSelectedId] = useState(null)
+  const [tab, setTab] = useState('all')
+  const [, force] = useState(0)
 
-const SERVICE_COLORS = {
-  'Website Development': 'blue',
-  'App Development':     'purple',
-  'Branding & Strategy': 'gold',
-  'E-Commerce':          'teal',
-  'Graphic Design':      'green',
-};
+  const unread = items.filter((m) => isUnread(m)).length
+  const shown = useMemo(() => (tab === 'unread' ? items.filter((m) => isUnread(m)) : items), [items, tab, force]) // eslint-disable-line
+  const selected = items.find((m) => m.id === selectedId) || null
 
-export default function MessagesPage() {
-  const [msgs, setMsgs] = useState([]);
-  const [selected, setSelected] = useState(null);
+  // On large screens open the newest message; on phones start at the list.
   useEffect(() => {
-  fetchMessages();
-}, []);
+    if (!selectedId && items.length && window.matchMedia('(min-width: 1024px)').matches) select(items[0])
+  }, [items]) // eslint-disable-line
 
-async function fetchMessages() {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*')
-    .order('id', { ascending: false });
-
-  if (error) {
-    console.error(error);
-    return;
+  async function select(m) {
+    setSelectedId(m.id)
+    if (isUnread(m)) { await setRead(m, true); force((n) => n + 1); refresh() }
   }
 
-  setMsgs(data);
-
-  if (data.length > 0) {
-    setSelected(data[0]);
-  }
-}
-  const markRead = (id) => setMsgs(ms => ms.map(m => m.id === id ? { ...m, read: true } : m));
-  const remove = async (id) => {
-
-  const { error } = await supabase
-    .from('messages')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error(error);
-    return;
+  async function toggleRead(m) {
+    await setRead(m, isUnread(m)); force((n) => n + 1); refresh()
   }
 
-  setMsgs(ms => ms.filter(m => m.id !== id));
-
-  if (selected?.id === id) {
-    setSelected(null);
+  async function remove(m) {
+    const ok = await confirm({ title: 'Delete this message?', message: `The message from ${m.name} will be permanently deleted.`, confirmLabel: 'Delete message', danger: true })
+    if (!ok) return
+    const { error: err } = await supabase.from('messages').delete().eq('id', m.id)
+    if (err) { console.error(err); toast.error(`Couldn’t delete: ${errorText(err)}`); return }
+    setItems((prev) => prev.filter((x) => x.id !== m.id))
+    setSelectedId(null)
+    toast.success('Message deleted.')
+    refresh()
   }
-};
-  const selectMsg = (msg) => {
-    setSelected(msg);
-    markRead(msg.id);
-  };
 
-  const unread = msgs.filter(m => !m.read).length;
+  const mailto = (m) => `mailto:${m.email}?subject=${encodeURIComponent('Re: your enquiry to CodeCanvas')}&body=${encodeURIComponent(`Hello ${String(m.name || '').split(' ')[0]},\n\nThank you for getting in touch.\n\n`)}`
 
   return (
-    <div className="p-5 lg:p-7 space-y-6">
+    <>
+      <PageHeader title="Messages" description={`${items.length} enquir${items.length === 1 ? 'y' : 'ies'} from your contact form${unread ? `, ${unread} unread` : ''}.`}
+        actions={<Button variant="secondary" icon={RefreshCw} onClick={() => { reload(); refresh() }}>Refresh</Button>} />
 
-      <SectionHeader
-        tag="💬 Inbox"
-        title="Client"
-        highlight="Messages"
-        subtitle={`${unread} unread · ${msgs.length} total`}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-5" style={{ minHeight: '520px' }}>
-
-        {/* ── Message List (left panel) ── */}
-        <Card className="lg:col-span-2 overflow-hidden flex flex-col">
-          <div className="p-3 border-b border-blue-500/10 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inbox</span>
-            {unread > 0 && (
-              <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {unread} new
-              </span>
+      {error ? <ErrorState error={error} onRetry={reload} /> : loading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4"><Skeleton className="h-80 lg:col-span-2" /><Skeleton className="h-80 lg:col-span-3 hidden lg:block" /></div>
+      ) : items.length === 0 ? (
+        <EmptyState icon={Inbox} title="No messages yet">Enquiries sent through the contact form on your website will appear here.</EmptyState>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 items-start">
+          {/* List: hidden on phones while a message is open */}
+          <div className={`lg:col-span-2 ${selected ? 'hidden lg:block' : ''}`}>
+            <div className="mb-3">
+              <FilterTabs label="Filter messages" value={tab} onChange={setTab} options={[{ value: 'all', label: 'All', count: items.length }, { value: 'unread', label: 'Unread', count: unread }]} />
+            </div>
+            {shown.length === 0 ? <EmptyState title="No unread messages">You’re all caught up.</EmptyState> : (
+              <Card className="overflow-hidden divide-y divide-line">
+                {shown.map((m) => {
+                  const un = isUnread(m)
+                  return (
+                    <button key={m.id} type="button" onClick={() => select(m)} aria-current={m.id === selectedId}
+                      className={`w-full text-left flex gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.04] ${m.id === selectedId ? 'bg-ink-800' : ''}`}>
+                      <Avatar name={m.name} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className={`text-sm truncate ${un ? 'font-bold text-white' : 'font-medium text-soft'}`}>{m.name}</p>
+                          <span className="text-[11px] text-muted shrink-0">{timeAgo(m)}</span>
+                        </div>
+                        <p className="text-[13px] text-muted truncate">{m.service}</p>
+                        <p className="text-[13px] text-muted truncate">{m.message}</p>
+                      </div>
+                      {un && <><Circle size={9} className="mt-2 shrink-0 fill-brand-500 text-brand-500" aria-hidden="true" /><span className="sr-only">Unread</span></>}
+                    </button>
+                  )
+                })}
+              </Card>
             )}
           </div>
 
-          <div className="overflow-y-auto flex-1 divide-y divide-blue-500/5">
-            {msgs.map(msg => (
-              <div
-                key={msg.id}
-                onClick={() => selectMsg(msg)}
-                className={`p-4 cursor-pointer transition-colors hover:bg-slate-700/30 ${
-                  selected?.id === msg.id ? 'bg-blue-600/10 border-l-2 border-blue-500' : ''
-                }`}
-              >
+          {/* Detail */}
+          <div className={`lg:col-span-3 ${selected ? '' : 'hidden lg:block'}`}>
+            {selected ? (
+              <Card className="p-5 sm:p-6 lg:sticky lg:top-24">
+                <button type="button" onClick={() => setSelectedId(null)} className="lg:hidden inline-flex items-center gap-2 min-h-[44px] -ml-1 mb-2 text-sm font-semibold text-muted hover:text-white">
+                  <ArrowLeft size={16} aria-hidden="true" /> All messages
+                </button>
                 <div className="flex items-start gap-3">
-                  <Avatar name={msg.name} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-semibold truncate ${msg.read ? 'text-slate-300' : 'text-white'}`}>
-                        {msg.name}
-                      </span>
-                      {!msg.read && <span className="w-1.5 h-1.5 bg-blue-400 rounded-full flex-shrink-0" />}
-                    </div>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {msg.message || msg.subject}
-                    </p>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <Badge variant={SERVICE_COLORS[msg.service] ?? 'gray'}>
-                        {msg.service}
-                      </Badge>
-                      <span className="text-[10px] text-slate-600">{new Date(msg.created_at).toLocaleDateString()}</span>
-                    </div>
+                  <Avatar name={selected.name} size={44} />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-xl font-bold [overflow-wrap:anywhere]">{selected.name}</h3>
+                    <a href={`mailto:${selected.email}`} className="text-sm text-brand-400 hover:underline [overflow-wrap:anywhere]">{selected.email}</a>
                   </div>
                 </div>
-              </div>
-            ))}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-4 text-sm">
+                  <Badge tone="blue">{selected.service}</Badge>
+                  {formatDate(selected) && <span className="text-muted">{formatDate(selected)}</span>}
+                </div>
+                <p className="mt-5 pt-5 border-t border-line text-[15px] leading-relaxed text-soft whitespace-pre-wrap [overflow-wrap:anywhere]">{selected.message}</p>
+                <div className="flex flex-wrap gap-2 mt-6 pt-5 border-t border-line">
+                  <Button as="a" href={mailto(selected)} icon={Mail}>Reply by email</Button>
+                  <Button variant="secondary" onClick={() => toggleRead(selected)}>{isUnread(selected) ? 'Mark as read' : 'Mark as unread'}</Button>
+                  <Button variant="danger" icon={Trash2} onClick={() => remove(selected)}>Delete</Button>
+                </div>
+              </Card>
+            ) : <EmptyState icon={Inbox} title="Select a message">Choose a message from the list to read it.</EmptyState>}
           </div>
-        </Card>
-
-        {/* ── Message Detail (right panel) ── */}
-        <Card className="lg:col-span-3 flex flex-col">
-          {selected ? (
-            <>
-              {/* Detail header */}
-              <div className="p-5 border-b border-blue-500/10 flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <Avatar name={selected.name} size="lg" />
-                  <div>
-                    <div className="font-bold text-white">{selected.name}</div>
-                    <div className="text-xs text-slate-500">{selected.email}</div>
-                    <Badge variant={SERVICE_COLORS[selected.service] ?? 'gray'} className="mt-1">
-                      {selected.service}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <Button variant="ghost"  size="sm" icon={CheckCircle} onClick={() => markRead(selected.id)} />
-                  <Button variant="danger" size="sm" icon={Trash2}      onClick={() => remove(selected.id)} />
-                </div>
-              </div>
-
-              {/* Message body */}
-              <div className="flex-1 p-5">
-                <div className="text-xs text-slate-600 mb-3">{new Date(selected.created_at).toLocaleString()}</div>
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  {selected.message}
-                </p>
-              </div>
-
-              {/* Reply area */}
-              <div className="p-5 border-t border-blue-500/10">
-                <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Quick Reply</div>
-                <textarea
-                  rows={3}
-                  placeholder={`Reply to ${selected.name}...`}
-                  className="w-full bg-slate-900/60 border border-blue-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 outline-none focus:border-blue-500/60 transition-all resize-none mb-3"
-                />
-                <div className="flex gap-2">
-                  <Button variant="primary" icon={Reply} size="sm">Send Reply</Button>
-                  <Button variant="outline" size="sm">
-                    <a href={`mailto:${selected.email}`} className="no-underline text-inherit">Open in Email</a>
-                  </Button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-10">
-              <div className="text-5xl mb-4">💬</div>
-              <div className="text-slate-400 text-sm">Select a message to read</div>
-            </div>
-          )}
-        </Card>
-
-      </div>
-    </div>
-  );
+        </div>
+      )}
+    </>
+  )
 }

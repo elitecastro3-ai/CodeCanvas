@@ -1,137 +1,66 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Lock, Mail, Loader2 } from "lucide-react";
-import { supabase } from '../lib/supabase'; // adjust path if needed
+import { useState } from 'react'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/auth.jsx'
+import { Button, Input } from '../components/ui/index.jsx'
 
 export default function Login() {
-  const navigate = useNavigate();
+  const { session, loading: authLoading } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [show, setShow] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  if (authLoading) return <div className="min-h-dvh grid place-items-center bg-ink-950"><Loader2 size={24} className="spin text-brand-400" /></div>
+  if (session) return <Navigate to="/dashboard" replace />
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (error) {
-        setError(error.message);
-        setLoading(false);
-        return;
-      }
-
-      // save auth state
-      localStorage.setItem("admin-auth", "true");
-
-      console.log("Logged in:", data.user);
-
-      navigate("/dashboard");
-    } catch (err) {
-      setError("Something went wrong");
-      console.error(err);
+  async function onSubmit(e) {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (err) {
+      setError(/invalid login/i.test(err.message) ? 'That email and password don’t match. Please try again.' : err.message)
+      setBusy(false)
+      return
     }
-
-    setLoading(false);
-  };
+    navigate(location.state?.from && location.state.from !== '/login' ? location.state.from : '/dashboard', { replace: true })
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-5">
-      <div className="w-full max-w-md bg-slate-900 border border-blue-500/20 rounded-3xl p-8 shadow-2xl">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/30">
-            <Lock className="text-white" size={28} />
-          </div>
-
-          <h1 className="text-2xl font-extrabold text-white">
-            Admin Login
-          </h1>
-
-          <p className="text-slate-500 text-sm mt-2">
-            Sign in to access CodeCanvas Admin
-          </p>
+    <div className="min-h-dvh bg-ink-950 grid place-items-center px-4 py-10">
+      <div className="w-full max-w-[420px]">
+        <div className="flex flex-col items-center text-center mb-8">
+          <img src={`${import.meta.env.BASE_URL}logo-mark.png`} alt="" width="84" height="58" className="w-[84px] h-auto mb-5" />
+          <h1 className="text-3xl font-extrabold">Code<span className="text-brand-500">Canvas</span></h1>
+          <p className="label-mono text-gold mt-2">Admin sign in</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-5">
-
-          {/* Email */}
+        <form onSubmit={onSubmit} noValidate className="bg-ink-900 border border-line-strong rounded-[16px] p-6 sm:p-7 space-y-5">
+          <Input label="Email" type="email" autoComplete="username" inputMode="email" placeholder="you@example.com" required
+            value={email} onChange={(e) => setEmail(e.target.value)} data-autofocus />
           <div>
-            <label className="text-sm text-slate-400 mb-2 block">
-              Email
-            </label>
-
-            <div className="flex items-center gap-3 bg-slate-800 border border-blue-500/20 rounded-xl px-4 py-3 focus-within:border-blue-500 transition-colors">
-              <Mail size={18} className="text-slate-500" />
-
-              <input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-transparent outline-none text-white w-full placeholder:text-slate-600"
-              />
+            <div className="relative">
+              <Input label="Password" type={show ? 'text' : 'password'} autoComplete="current-password" placeholder="Your password" required
+                value={password} onChange={(e) => setPassword(e.target.value)} className="[&_input]:pr-12" />
+              <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? 'Hide password' : 'Show password'}
+                className="absolute right-1 bottom-[2px] w-11 h-11 grid place-items-center text-muted hover:text-white">
+                {show ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
-          {/* Password */}
-          <div>
-            <label className="text-sm text-slate-400 mb-2 block">
-              Password
-            </label>
+          {error && <p role="alert" className="text-sm text-red-300 border border-red-400/30 bg-red-500/5 rounded-[10px] px-3.5 py-2.5">{error}</p>}
 
-            <div className="flex items-center gap-3 bg-slate-800 border border-blue-500/20 rounded-xl px-4 py-3 focus-within:border-blue-500 transition-colors">
-              <Lock size={18} className="text-slate-500" />
-
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="bg-transparent outline-none text-white w-full placeholder:text-slate-600"
-              />
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-3">
-              {error}
-            </div>
-          )}
-
-          {/* Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-70 transition-all text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              "Login"
-            )}
-          </button>
-
+          <Button type="submit" loading={busy} disabled={!email || !password} className="w-full">{busy ? 'Signing in…' : 'Sign in'}</Button>
         </form>
+
+        <p className="text-center text-xs text-muted mt-6">Authorised access only.</p>
       </div>
     </div>
-  );
+  )
 }

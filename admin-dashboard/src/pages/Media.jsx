@@ -1,529 +1,156 @@
-// ─────────────────────────────────────────────
-//  Page: Media Library
-//  Grid + list view for uploaded files/images
-// ─────────────────────────────────────────────
+import { useMemo, useRef, useState } from 'react'
+import { Upload, Trash2, Copy, ExternalLink, FileText, File as FileIcon, Image as ImageIcon, LayoutGrid, List, Search } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useTable } from '../lib/useTable'
+import { errorText, safeFileName, safeUrl } from '../lib/format'
+import { useFeedback } from '../components/ui/feedback.jsx'
+import { Badge, Button, Card, EmptyState, ErrorState, FilterTabs, IconButton, PageHeader, Select, Skeleton, Thumb } from '../components/ui/index.jsx'
 
-import { useState, useEffect } from 'react';
-import {
-  Upload,
-  Trash2,
-  Download,
-  Grid,
-  List,
-  Image,
-  FileText,
-  Archive
-} from 'lucide-react';
+const DEFAULT_TAGS = ['Portfolio', 'Brand', 'Marketing', 'Design', 'Deliverable']
+const MAX_MB = 10
+const ICON = { image: ImageIcon, pdf: FileText, file: FileIcon }
 
-import {
-  Badge,
-  Button,
-  Card,
-  SectionHeader
-} from '../components/ui/index.jsx';
+export default function Media() {
+  const { items, setItems, loading, error, reload } = useTable('media')
+  const { toast, confirm } = useFeedback()
+  const [view, setView] = useState('grid')
+  const [filter, setFilter] = useState('All')
+  const [query, setQuery] = useState('')
+  const [tag, setTag] = useState('Portfolio')
+  const [uploading, setUploading] = useState(false)
+  const [drag, setDrag] = useState(false)
+  const input = useRef(null)
 
-import { supabase } from '../lib/supabase';
+  const tags = useMemo(() => ['All', ...new Set(items.map((i) => i.tag).filter(Boolean))], [items])
+  const filtered = items.filter((i) => (filter === 'All' || i.tag === filter) && (!query.trim() || (i.name || '').toLowerCase().includes(query.trim().toLowerCase())))
 
-const TYPE_ICON = {
-  image: Image,
-  pdf: FileText,
-  file: Archive
-};
-
-const TYPE_COLOR = {
-  image: 'blue',
-  pdf: 'red',
-  file: 'gold'
-};
-
-const TAG_COLOR = {
-  Portfolio: 'blue',
-  Brand: 'gold',
-  Deliverable: 'green',
-  Draft: 'gray',
-  Design: 'purple',
-  Marketing: 'teal'
-};
-
-const FILE_EMOJIS = {
-  'celutamax-hero.jpg': '🚗',
-  'deliverygo-screens.png': '📱',
-  'codecanvas-logo.png': '🎨',
-  'shopease-preview.jpg': '🛒',
-  'brand-pack-amara.zip': '📦',
-  'logo-concepts-v2.pdf': '📄',
-  'biztrack-wireframe.fig': '🖌️',
-  'hero-banner-may.jpg': '🌟',
-};
-
-export default function MediaPage() {
-
-  const [items, setItems] = useState([]);
-  const [view, setView] = useState('grid');
-  const [filter, setFilter] = useState('All');
-  const [dragging, setDragging] = useState(false);
-  const [selectedTag, setSelectedTag] = useState('Portfolio');
-
-  useEffect(() => {
-    fetchMedia();
-  }, []);
-
-  async function fetchMedia() {
-
-    const { data, error } = await supabase
-      .from('media')
-      .select('*')
-      .order('id', { ascending: false });
-
-    if (error) {
-      console.error(error);
-      return;
+  async function upload(fileList) {
+    const files = [...fileList]
+    if (!files.length) return
+    setUploading(true)
+    let ok = 0
+    for (const file of files) {
+      if (file.size > MAX_MB * 1048576) { toast.error(`${file.name} is over ${MAX_MB} MB, so it was skipped.`); continue }
+      const fileName = safeFileName(file.name)
+      const { error: upErr } = await supabase.storage.from('media-files').upload(fileName, file)
+      if (upErr) { console.error(upErr); toast.error(`${file.name}: ${errorText(upErr)}`); continue }
+      const url = supabase.storage.from('media-files').getPublicUrl(fileName).data.publicUrl
+      const row = {
+        name: file.name, tag,
+        type: file.type.includes('image') ? 'image' : file.type.includes('pdf') ? 'pdf' : 'file',
+        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`, url,
+      }
+      const { data, error: dbErr } = await supabase.from('media').insert([row]).select()
+      if (dbErr || !data?.length) { console.error(dbErr); toast.error(`${file.name}: uploaded but couldn’t be saved to the library.`); continue }
+      setItems((prev) => [...data, ...prev]); ok++
     }
-
-    setItems(data || []);
+    setUploading(false)
+    if (input.current) input.current.value = ''
+    if (ok) toast.success(`${ok} file${ok > 1 ? 's' : ''} uploaded.`)
   }
 
-  const tags = ['All', ...new Set(items.map(i => i.tag))];
-
-  const filtered =
-    filter === 'All'
-      ? items
-      : items.filter(i => i.tag === filter);
-
-  async function handleUpload(e) {
-
-    const file = e.target.files[0];
-
-    if (!file) return;
-
-    const fileName = `${Date.now()}-${file.name}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('media-files')
-      .upload(fileName, file);
-
-    if (uploadError) {
-      console.error(uploadError);
-      return;
-    }
-
-    const { data } = supabase.storage
-      .from('media-files')
-      .getPublicUrl(fileName);
-
-    const fileUrl = data.publicUrl;
-
-    const mediaItem = {
-      name: file.name,
-
-      type: file.type.includes('image')
-        ? 'image'
-        : file.type.includes('pdf')
-        ? 'pdf'
-        : 'file',
-
-      tag: selectedTag,
-
-      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-
-      url: fileUrl
-    };
-
-    const { data: inserted, error } = await supabase
-      .from('media')
-      .insert([mediaItem])
-      .select();
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setItems(prev => [...inserted, ...prev]);
-
-    e.target.value = '';
+  async function copy(item) {
+    try { await navigator.clipboard.writeText(item.url); toast.success('Link copied. Paste it wherever you need it.') }
+    catch { toast.error('Couldn’t copy automatically. Open the file and copy the address from there.') }
   }
 
-  async function remove(id, url) {
-
-    const fileName = url.split('/').pop();
-
-    await supabase.storage
-      .from('media-files')
-      .remove([fileName]);
-
-    const { error } = await supabase
-      .from('media')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error(error);
-      return;
-    }
-
-    setItems(prev => prev.filter(i => i.id !== id));
+  async function remove(item) {
+    const ok = await confirm({ title: 'Delete this file?', message: `“${item.name}” will be removed from the library and from storage. Any page using its link will lose it.`, confirmLabel: 'Delete file', danger: true })
+    if (!ok) return
+    const fileName = decodeURIComponent(String(item.url || '').split('/').pop().split('?')[0])
+    const { error: stErr } = await supabase.storage.from('media-files').remove([fileName])
+    if (stErr) console.error(stErr)
+    const { error: err } = await supabase.from('media').delete().eq('id', item.id)
+    if (err) { console.error(err); toast.error(`Couldn’t delete: ${errorText(err)}`); return }
+    setItems((prev) => prev.filter((x) => x.id !== item.id))
+    toast.success('File deleted.')
   }
+
+  const Actions = ({ item }) => (
+    <div className="flex gap-1">
+      <IconButton icon={Copy} label={`Copy link to ${item.name}`} onClick={() => copy(item)} />
+      {safeUrl(item.url) && <IconButton icon={ExternalLink} label={`Open ${item.name}`} onClick={() => window.open(safeUrl(item.url), '_blank', 'noopener')} />}
+      <IconButton icon={Trash2} label={`Delete ${item.name}`} variant="danger" onClick={() => remove(item)} />
+    </div>
+  )
 
   return (
-    <div className="p-5 lg:p-7 space-y-6">
+    <>
+      <PageHeader title="Media library" description={`${items.length} file${items.length === 1 ? '' : 's'} · ${items.filter((i) => i.type === 'image').length} images. Copy a link to use any file on your website or in a case study.`} />
 
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-
-        <SectionHeader
-          tag="🖼️ Media"
-          title="Media"
-          highlight="Library"
-          subtitle={`${items.length} files · ${items.filter(i => i.type === 'image').length} images`}
-        />
-
-        <div className="flex gap-2 items-center">
-
-          <button
-            onClick={() => setView('grid')}
-            className={`p-2 rounded-lg border transition-all ${
-              view === 'grid'
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-blue-500/20 text-slate-400 hover:text-white'
-            }`}
-          >
-            <Grid size={14} />
-          </button>
-
-          <button
-            onClick={() => setView('list')}
-            className={`p-2 rounded-lg border transition-all ${
-              view === 'list'
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-blue-500/20 text-slate-400 hover:text-white'
-            }`}
-          >
-            <List size={14} />
-          </button>
-
-          <select
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-            className="bg-slate-900 border border-blue-500/20 text-white text-sm rounded-lg px-3 py-2 outline-none"
-          >
-            <option value="Portfolio">Portfolio</option>
-            <option value="Brand">Brand</option>
-            <option value="Deliverable">Deliverable</option>
-            <option value="Draft">Draft</option>
-            <option value="Design">Design</option>
-            <option value="Marketing">Marketing</option>
-          </select>
-
-          <label
-            htmlFor="media-upload"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 text-sm font-medium transition-all"
-          >
-            <Upload size={16} />
-            Upload File
-          </label>
-
-          <input
-            type="file"
-            id="media-upload"
-            className="hidden"
-            onChange={handleUpload}
-          />
-
+      <Card className={`p-4 sm:p-5 mb-6 border-dashed transition-colors ${drag ? 'border-brand-500 bg-brand-500/5' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true) }} onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files) }}>
+        <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+          <div className="flex-1">
+            <p className="font-semibold">Upload files</p>
+            <p className="text-sm text-muted mt-0.5">Drag files here or choose them. Up to {MAX_MB} MB each.</p>
+          </div>
+          <Select label="Tag" options={[...new Set([...DEFAULT_TAGS, ...items.map((i) => i.tag).filter(Boolean)])]} value={tag} onChange={(e) => setTag(e.target.value)} className="sm:w-44" />
+          <input ref={input} type="file" multiple className="sr-only" tabIndex={-1} onChange={(e) => upload(e.target.files)} />
+          <Button icon={Upload} loading={uploading} onClick={() => input.current.click()}>{uploading ? 'Uploading…' : 'Choose files'}</Button>
         </div>
-      </div>
+      </Card>
 
-      {/* ── Drop Zone ── */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
+      {error ? <ErrorState error={error} onRetry={reload} /> : loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-48" />)}</div>
+      ) : items.length === 0 ? (
+        <EmptyState icon={ImageIcon} title="Your library is empty">Upload screenshots, logos or documents and they’ll be kept here.</EmptyState>
+      ) : (
+        <>
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+            <FilterTabs label="Filter by tag" value={filter} onChange={setFilter} options={tags.map((t) => ({ value: t, label: t, count: t === 'All' ? items.length : items.filter((i) => i.tag === t).length }))} />
+            <div className="flex gap-2">
+              <div className="relative flex-1 lg:w-64">
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none" aria-hidden="true" />
+                <input type="search" aria-label="Search files" placeholder="Search files" value={query} onChange={(e) => setQuery(e.target.value)}
+                  className="w-full min-h-[44px] rounded-[10px] bg-ink-950 border border-line-strong pl-10 pr-3 text-base sm:text-sm placeholder:text-slate-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30" />
+              </div>
+              <IconButton icon={LayoutGrid} label="Grid view" variant={view === 'grid' ? 'secondary' : 'ghost'} aria-pressed={view === 'grid'} onClick={() => setView('grid')} className="w-11 h-11" />
+              <IconButton icon={List} label="List view" variant={view === 'list' ? 'secondary' : 'ghost'} aria-pressed={view === 'list'} onClick={() => setView('list')} className="w-11 h-11" />
+            </div>
+          </div>
 
-        onDragLeave={() => setDragging(false)}
-
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-        }}
-
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer ${
-          dragging
-            ? 'border-blue-400 bg-blue-500/10'
-            : 'border-blue-500/20 hover:border-blue-500/40 hover:bg-slate-800/30'
-        }`}
-      >
-
-        <Upload
-          size={28}
-          className={`mx-auto mb-2 transition-colors ${
-            dragging ? 'text-blue-400' : 'text-slate-600'
-          }`}
-        />
-
-        <p
-          className={`text-sm transition-colors ${
-            dragging ? 'text-blue-300' : 'text-slate-500'
-          }`}
-        >
-          {dragging
-            ? 'Drop files here!'
-            : 'Drag & drop files here, or click Upload File above'}
-        </p>
-
-        <p className="text-xs text-slate-600 mt-1">
-          PNG, JPG, PDF, ZIP, FIG — max 20MB
-        </p>
-
-      </div>
-
-      {/* ── Filter Tags ── */}
-      <div className="flex gap-2 flex-wrap">
-
-        {tags.map(tag => (
-
-          <button
-            key={tag}
-            onClick={() => setFilter(tag)}
-            className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
-              filter === tag
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-blue-500/20 text-slate-400 hover:border-blue-500/40 hover:text-white'
-            }`}
-          >
-            {tag}
-          </button>
-
-        ))}
-
-      </div>
-
-      {/* ── Grid View ── */}
-      {view === 'grid' && (
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-
-          {filtered.map(item => {
-
-            const IconComp = TYPE_ICON[item.type] ?? Archive;
-
-            return (
-
-              <Card
-                key={item.id}
-                hover
-                className="overflow-hidden group relative"
-              >
-
-                {/* Thumbnail */}
-                <div className="aspect-square bg-slate-700/40 flex items-center justify-center text-4xl border-b border-blue-500/10">
-
-                  {item.type === 'image'
-                    ? (
-                      <span>
-                        {FILE_EMOJIS[item.name] ?? '🖼️'}
-                      </span>
-                    )
-                    : (
-                      <IconComp
-                        size={36}
-                        className={`text-${TYPE_COLOR[item.type]}-400 opacity-50`}
-                      />
-                    )
-                  }
-
-                </div>
-
-                {/* Info */}
-                <div className="p-3">
-
-                  <p className="text-xs font-semibold text-white truncate">
-                    {item.name}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-1.5">
-
-                    <span className="text-[10px] text-slate-500">
-                      {item.size}
-                    </span>
-
-                    <Badge variant={TAG_COLOR[item.tag] ?? 'gray'}>
-                      {item.tag}
-                    </Badge>
-
-                  </div>
-                </div>
-
-                {/* Hover actions */}
-                <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-2xl">
-
-                  <a
-                    href={item.url}
-                    download
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={Download}
-                      className="!p-2"
-                    />
-                  </a>
-
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={Trash2}
-                    className="!p-2"
-                    onClick={() => remove(item.id, item.url)}
-                  />
-
-                </div>
-
-              </Card>
-
-            );
-          })}
-
-        </div>
-
-      )}
-
-      {/* ── List View ── */}
-      {view === 'list' && (
-
-        <Card className="overflow-hidden">
-
-          <table className="w-full">
-
-            <thead>
-
-              <tr className="border-b border-blue-500/10">
-
-                <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest px-5 py-3">
-                  File
-                </th>
-
-                <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest px-4 py-3 hidden sm:table-cell">
-                  Type
-                </th>
-
-                <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest px-4 py-3">
-                  Tag
-                </th>
-
-                <th className="text-left text-[11px] font-bold text-slate-500 uppercase tracking-widest px-4 py-3 hidden md:table-cell">
-                  Size
-                </th>
-
-                <th className="px-5 py-3" />
-
-              </tr>
-
-            </thead>
-
-            <tbody className="divide-y divide-blue-500/5">
-
-              {filtered.map(item => {
-
-                const IconComp = TYPE_ICON[item.type] ?? Archive;
-
+          {filtered.length === 0 ? <EmptyState title="No files match">Try a different tag or search term.</EmptyState> : view === 'grid' ? (
+            <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {filtered.map((item) => {
+                const Icon = ICON[item.type] || FileIcon
                 return (
-
-                  <tr
-                    key={item.id}
-                    className="hover:bg-slate-700/20 transition-colors group"
-                  >
-
-                    <td className="px-5 py-3">
-
-                      <div className="flex items-center gap-3">
-
-                        <div className="w-8 h-8 rounded-lg bg-slate-700/60 flex items-center justify-center flex-shrink-0">
-
-                          <IconComp
-                            size={14}
-                            className="text-blue-400"
-                          />
-
-                        </div>
-
-                        <span className="text-sm font-medium text-white truncate max-w-[160px]">
-                          {item.name}
-                        </span>
-
+                  <li key={item.id}>
+                    <Card className="overflow-hidden h-full flex flex-col">
+                      <div className="aspect-[4/3] bg-ink-800 grid place-items-center">
+                        {item.type === 'image' && safeUrl(item.url)
+                          ? <Thumb src={safeUrl(item.url)} className="w-full h-full object-cover" fallback={<Icon size={34} className="text-slate-500" aria-hidden="true" />} />
+                          : <Icon size={34} className="text-slate-500" aria-hidden="true" />}
                       </div>
-
-                    </td>
-
-                    <td className="px-4 py-3 hidden sm:table-cell">
-
-                      <Badge variant={TYPE_COLOR[item.type] ?? 'gray'}>
-                        {item.type}
-                      </Badge>
-
-                    </td>
-
-                    <td className="px-4 py-3">
-
-                      <Badge variant={TAG_COLOR[item.tag] ?? 'gray'}>
-                        {item.tag}
-                      </Badge>
-
-                    </td>
-
-                    <td className="px-4 py-3 hidden md:table-cell">
-
-                      <span className="text-xs text-slate-500">
-                        {item.size}
-                      </span>
-
-                    </td>
-
-                    <td className="px-5 py-3">
-
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end">
-
-                        <a
-                          href={item.url}
-                          download
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={Download}
-                            className="!p-1.5"
-                          />
-                        </a>
-
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={Trash2}
-                          className="!p-1.5"
-                          onClick={() => remove(item.id, item.url)}
-                        />
-
+                      <div className="p-3 flex-1 flex flex-col gap-2">
+                        <p className="text-sm font-medium truncate" title={item.name}>{item.name}</p>
+                        <div className="flex items-center gap-2 text-xs text-muted"><span className="font-mono">{item.size}</span>{item.tag && <Badge>{item.tag}</Badge>}</div>
+                        <div className="mt-auto -ml-1.5"><Actions item={item} /></div>
                       </div>
-
-                    </td>
-
-                  </tr>
-
-                );
+                    </Card>
+                  </li>
+                )
               })}
-
-            </tbody>
-
-          </table>
-
-        </Card>
-
+            </ul>
+          ) : (
+            <Card className="divide-y divide-line">
+              {filtered.map((item) => {
+                const Icon = ICON[item.type] || FileIcon
+                return (
+                  <div key={item.id} className="flex items-center gap-3 p-3">
+                    <div className="w-12 h-12 rounded-lg bg-ink-800 border border-line overflow-hidden grid place-items-center shrink-0">
+                      {item.type === 'image' && safeUrl(item.url) ? <Thumb src={safeUrl(item.url)} className="w-full h-full object-cover" fallback={<Icon size={20} className="text-slate-500" aria-hidden="true" />} /> : <Icon size={20} className="text-slate-500" aria-hidden="true" />}
+                    </div>
+                    <div className="min-w-0 flex-1"><p className="text-sm font-medium truncate">{item.name}</p><p className="text-xs text-muted font-mono">{item.size}{item.tag ? ` · ${item.tag}` : ''}</p></div>
+                    <Actions item={item} />
+                  </div>
+                )
+              })}
+            </Card>
+          )}
+        </>
       )}
-
-    </div>
-  );
+    </>
+  )
 }

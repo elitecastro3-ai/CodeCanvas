@@ -1,37 +1,38 @@
-/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Google Fonts fallback (loaded in index.html) ─── */
+/* Self-hosted fonts (same files as the public site) */
+@font-face { font-family: "Bricolage Grotesque"; src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+@font-face { font-family: "Inter"; src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/fonts/jetbrains-mono-latin-wght-normal.woff2") format("woff2"); font-weight: 100 800; font-display: swap; }
+
 @layer base {
-  html { scroll-behavior: smooth; }
-
+  html { -webkit-text-size-adjust: 100%; background: #0a1122; }
   body {
-    background-color: #0A0F1E;
-    color: #ffffff;
-    font-family: 'DM Sans', sans-serif;
-    margin: 0;
+    margin: 0; background: #0a1122; color: #f1f5f9;
+    font-family: Inter, system-ui, sans-serif; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
   }
-
-  .font-display { font-family: 'Syne', sans-serif; }
-
-  /* Custom scrollbar */
-  ::-webkit-scrollbar       { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: #0A0F1E; }
-  ::-webkit-scrollbar-thumb { background: #3B82F6; border-radius: 2px; }
+  h1, h2, h3, h4 { font-family: "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -0.02em; text-wrap: balance; }
+  :focus-visible { outline: 2px solid #60a5fa; outline-offset: 2px; border-radius: 6px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #243252; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #31446e; }
 }
 
-/* ─── Page enter animation ─── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+@layer utilities {
+  .label-mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; }
 }
-.page-enter { animation: fadeUp 0.3s ease both; }
 
-/* ─── Bar chart grow animation ─── */
-@keyframes barGrow {
-  from { transform: scaleY(0); transform-origin: bottom; }
-  to   { transform: scaleY(1); transform-origin: bottom; }
+@keyframes cc-pulse { 50% { opacity: 0.5; } }
+.skeleton { background: #18233d; border-radius: 8px; animation: cc-pulse 1.6s ease-in-out infinite; }
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+.spin { animation: cc-spin 0.9s linear infinite; }
+@keyframes cc-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pop { animation: cc-pop 0.18s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
-.bar-animate { animation: barGrow 0.6s ease both; }

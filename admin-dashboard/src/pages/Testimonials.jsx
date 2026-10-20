@@ -1,188 +1,87 @@
-// ─────────────────────────────────────────────
-//  Page: Testimonials Manager
-//  Cards with approve/reject + delete actions
-// ─────────────────────────────────────────────
+import { useMemo, useState } from 'react'
+import { Check, Trash2, EyeOff, MessageSquareQuote } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useTable } from '../lib/useTable'
+import { useCounts } from '../lib/counts.jsx'
+import { errorText, timeAgo } from '../lib/format'
+import { useFeedback } from '../components/ui/feedback.jsx'
+import { Avatar, Badge, Button, Card, EmptyState, ErrorState, FilterTabs, PageHeader, Skeleton, Stars } from '../components/ui/index.jsx'
 
-import { useState, useEffect } from 'react';
-import { Check, X, Trash2, Star } from 'lucide-react';
-import { Badge, Button, Card, SectionHeader, Avatar } from '../components/ui/index.jsx';
-import { supabase } from '../lib/supabase';
+export default function Testimonials() {
+  const { items, setItems, loading, error, reload } = useTable('testimonials')
+  const { refresh } = useCounts()
+  const { toast, confirm } = useFeedback()
+  const [tab, setTab] = useState('pending')
+  const [busy, setBusy] = useState(null)
 
-function StarRating({ rating }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5].map(i => (
-        <Star key={i} size={12} className={i <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-600'} />
-      ))}
-    </div>
-  );
-}
+  const pending = items.filter((t) => !t.approved), approved = items.filter((t) => t.approved)
+  const shown = useMemo(() => (tab === 'pending' ? pending : tab === 'approved' ? approved : items), [tab, items]) // eslint-disable-line
 
-export default function TestimonialsPage() {
-  const [items, setItems] = useState([]);
-  const [filter, setFilter] = useState('All');
-
-  useEffect(() => {
-  fetchTestimonials();
-}, []);
-
-async function fetchTestimonials() {
-
-  const { data, error } = await supabase
-    .from('testimonials')
-    .select('*')
-    .order('id', { ascending: false });
-
-  if (error) {
-    console.error(error);
-    return;
+  async function setApproved(t, value) {
+    setBusy(t.id)
+    const { error: err } = await supabase.from('testimonials').update({ approved: value }).eq('id', t.id)
+    setBusy(null)
+    if (err) { console.error(err); toast.error(`Couldn’t update: ${errorText(err)}`); return }
+    setItems((prev) => prev.map((x) => (x.id === t.id ? { ...x, approved: value } : x)))
+    toast.success(value ? 'Published on your website.' : 'Hidden from your website.')
+    refresh()
   }
 
-  setItems(data || []);
-}
-
-  async function approve(id) {
-
-  const { error } = await supabase
-    .from('testimonials')
-    .update({ approved: true })
-    .eq('id', id);
-
-  if (error) {
-    console.error(error);
-    return;
+  async function remove(t) {
+    const ok = await confirm({ title: 'Delete this review?', message: `The review from ${t.name} will be permanently deleted.`, confirmLabel: 'Delete review', danger: true })
+    if (!ok) return
+    setBusy(t.id)
+    const { error: err } = await supabase.from('testimonials').delete().eq('id', t.id)
+    setBusy(null)
+    if (err) { console.error(err); toast.error(`Couldn’t delete: ${errorText(err)}`); return }
+    setItems((prev) => prev.filter((x) => x.id !== t.id))
+    toast.success('Review deleted.')
+    refresh()
   }
-
-  setItems(ts =>
-    ts.map(t =>
-      t.id === id
-        ? { ...t, approved: true }
-        : t
-    )
-  );
-}
-  async function remove(id) {
-
-  const { error } = await supabase
-    .from('testimonials')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  setItems(ts => ts.filter(t => t.id !== id));
-}
-  const filtered = filter === 'All'      ? items
-    : filter === 'Approved'  ? items.filter(t => t.approved)
-    : items.filter(t => !t.approved);
-
-  const pending  = items.filter(t => !t.approved).length;
-  const approved = items.filter(t => t.approved).length;
-
-  const avatarColors = ['blue', 'gold', 'green', 'purple', 'blue'];
 
   return (
-    <div className="p-5 lg:p-7 space-y-6">
-
-      {/* ── Header ── */}
-      <SectionHeader
-        tag="⭐ Reviews"
-        title="Client"
-        highlight="Testimonials"
-        subtitle={`${approved} approved · ${pending} pending review`}
-      />
-
-      {/* ── Summary ── */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-extrabold text-white">{items.length}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Total Reviews</div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-extrabold text-emerald-400">{approved}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Approved</div>
-        </Card>
-        <Card className="p-4 text-center">
-          <div className="text-2xl font-extrabold text-amber-400">{pending}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Pending</div>
-        </Card>
-      </div>
-
-      {/* ── Filter Tabs ── */}
-      <div className="flex gap-2">
-        {['All', 'Approved', 'Pending'].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-full text-xs font-semibold border transition-all ${
-              filter === f
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-blue-500/20 text-slate-400 hover:border-blue-500/40 hover:text-white'
-            }`}
-          >
-            {f} {f === 'Pending' && pending > 0 && (
-              <span className="ml-1 bg-amber-500 text-white text-[9px] font-bold w-3.5 h-3.5 rounded-full inline-flex items-center justify-center">
-                {pending}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Testimonial Cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((t, i) => (
-          <Card key={t.id} className="p-5 flex flex-col gap-4">
-
-            {/* Top: stars + status */}
-            <div className="flex items-center justify-between">
-              <StarRating rating={t.rating} />
-              <Badge variant={t.approved ? 'green' : 'gold'}>
-                {t.approved ? 'Approved' : 'Pending'}
-              </Badge>
-            </div>
-
-            {/* Quote text */}
-            <p className="text-sm text-slate-300 leading-relaxed italic flex-1">
-              "{t.text}"
-            </p>
-
-            {/* Author */}
-            <div className="flex items-center gap-3 pt-3 border-t border-blue-500/10">
-              <Avatar name={t.name} color={avatarColors[i % avatarColors.length]} />
-              <div>
-                <div className="text-sm font-semibold text-white">{t.name}</div>
-                <div className="text-xs text-slate-500">{t.business}</div>
-              </div>
-              <div className="ml-auto text-xs text-slate-600">{t.date}</div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              {!t.approved && (
-                <Button variant="success" size="sm" icon={Check} className="flex-1" onClick={() => approve(t.id)}>
-                  Approve
-                </Button>
-              )}
-              <Button variant="danger" size="sm" icon={Trash2} className={t.approved ? 'flex-1' : ''} onClick={() => remove(t.id)}>
-                {t.approved ? 'Remove' : ''}
-              </Button>
-            </div>
-
-          </Card>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-20 text-slate-500">
-          <div className="text-4xl mb-3">⭐</div>
-          <div className="text-sm">No {filter.toLowerCase()} testimonials</div>
-        </div>
+    <>
+      <PageHeader title="Testimonials" description="Reviews arrive here from the form on your website. Only approved reviews are shown to visitors." />
+      {error ? <ErrorState error={error} onRetry={reload} /> : loading ? (
+        <div className="space-y-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-36" />)}</div>
+      ) : (
+        <>
+          <div className="mb-5">
+            <FilterTabs label="Filter reviews" value={tab} onChange={setTab}
+              options={[{ value: 'pending', label: 'Awaiting approval', count: pending.length }, { value: 'approved', label: 'Published', count: approved.length }, { value: 'all', label: 'All', count: items.length }]} />
+          </div>
+          {shown.length === 0 ? (
+            <EmptyState icon={MessageSquareQuote} title={tab === 'pending' ? 'Nothing waiting for approval' : 'No reviews here yet'}>
+              {tab === 'pending' ? 'When a client submits a review on your website it will show up here for you to approve.' : 'Reviews you approve will be listed here.'}
+            </EmptyState>
+          ) : (
+            <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {shown.map((t) => (
+                <li key={t.id}>
+                  <Card className="p-5 h-full flex flex-col">
+                    <div className="flex items-start gap-3">
+                      <Avatar name={t.name} size={40} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-bold truncate">{t.name}</p>
+                        <p className="text-[13px] text-muted truncate">{t.business}{t.created_at ? ` · ${timeAgo(t)}` : ''}</p>
+                      </div>
+                      <Badge tone={t.approved ? 'green' : 'gold'}>{t.approved ? 'Published' : 'Pending'}</Badge>
+                    </div>
+                    <div className="mt-4"><Stars value={Number(t.rating) || 0} /></div>
+                    <p className="text-sm text-soft leading-relaxed mt-3 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere]">“{t.text}”</p>
+                    <div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-line">
+                      {t.approved
+                        ? <Button variant="secondary" size="sm" icon={EyeOff} loading={busy === t.id} onClick={() => setApproved(t, false)}>Unpublish</Button>
+                        : <Button size="sm" icon={Check} loading={busy === t.id} onClick={() => setApproved(t, true)}>Approve &amp; publish</Button>}
+                      <Button variant="danger" size="sm" icon={Trash2} disabled={busy === t.id} onClick={() => remove(t)}>Delete</Button>
+                    </div>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
-
-    </div>
-  );
+    </>
+  )
 }
